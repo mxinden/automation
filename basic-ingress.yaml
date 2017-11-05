@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: automation
+  namespace: automation
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: kubernetes.mxinden.cloudns.cx
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: automation
+          servicePort: 80

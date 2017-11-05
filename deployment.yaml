@@ -1,0 +1,41 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: automation
+  labels:
+    app: automation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: automation
+  template:
+    metadata:
+      labels:
+        app: automation
+    spec:
+      serviceAccountName: automation
+      volumes:
+      - name: ca-certificates
+        hostPath:
+          path: /etc/ssl/certs
+      - name: config-volume
+        configMap:
+          name: automation
+      containers:
+      - name: automation
+        image: minden/automation:v0.8
+        env:
+        - name: GITHUB_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-api-token
+              key: GITHUB_OAUTH_TOKEN
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - mountPath: /etc/ssl/certs
+          name: ca-certificates
+        - mountPath: /configuration.yaml
+          name: config-volume
+          subPath: configuration.yaml

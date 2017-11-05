@@ -1,0 +1,3 @@
+repositories:
+  - https://raw.githubusercontent.com/mxinden/sample-project/master/automation-config.yaml
+namespace: automation
