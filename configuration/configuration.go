@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	"fmt"
 	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
@@ -35,7 +34,6 @@ func (c *Configuration) ContainsRepository(url string) bool {
 }
 
 func equalsAny(s string, list []string) bool {
-	fmt.Println(s, list)
 	for _, e := range list {
 		if e == s {
 			return true

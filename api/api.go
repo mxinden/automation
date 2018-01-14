@@ -13,9 +13,16 @@ import (
 
 var config configuration.Configuration
 
-func HandleRequests(c configuration.Configuration) {
-	config = c
-	http.HandleFunc("/trigger", trigger)
+type API struct {
+	config configuration.Configuration
+}
+
+func NewAPI(c configuration.Configuration) API {
+	return API{config: c}
+}
+
+func (api *API) HandleRequests() {
+	http.HandleFunc("/trigger", api.triggerHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -47,7 +54,7 @@ type head struct {
 	Sha string `json:"sha"`
 }
 
-func trigger(w http.ResponseWriter, r *http.Request) {
+func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var payload triggerPayload
@@ -61,7 +68,7 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = checkPermissions(payload)
+	err = checkPermissions(api.config, payload)
 	if err != nil {
 		log.Print(err)
 		http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
@@ -84,7 +91,7 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func checkPermissions(p triggerPayload) error {
+func checkPermissions(c configuration.Configuration, p triggerPayload) error {
 	if !equalsAny(
 		p.PullRequest.AuthorAssociation,
 		[]AuthorAssociation{AuthorAssociationCOLLABORATOR, AuthorAssociationMEMBER, AuthorAssociationOWNER},

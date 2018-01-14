@@ -14,5 +14,7 @@ func main() {
 
 	kubernetes.Namespace = config.Namespace
 
-	api.HandleRequests(config)
+	automationAPI := api.NewAPI(config)
+
+	automationAPI.HandleRequests()
 }

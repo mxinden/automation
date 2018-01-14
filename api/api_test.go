@@ -21,7 +21,7 @@ func TestTableTriggerEndpoint(t *testing.T) {
 	c := configuration.Configuration{
 		Repositories: []string{"github.com/mxinden/sample-project"},
 	}
-	config = c
+	automationAPI := NewAPI(c)
 
 	for _, tt := range triggerEndpoinTests {
 		req, err := httpReqFromFile(tt.requestBodyPath)
@@ -31,7 +31,7 @@ func TestTableTriggerEndpoint(t *testing.T) {
 
 		recorder := httptest.NewRecorder()
 
-		trigger(recorder, req)
+		automationAPI.triggerHandler(recorder, req)
 
 		statusCode := recorder.Result().StatusCode
 
