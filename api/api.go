@@ -4,13 +4,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mxinden/automation/configuration"
 	"github.com/mxinden/automation/execution"
 	"log"
 	"net/http"
 	"strings"
 )
 
-func HandleRequests() {
+var config configuration.Configuration
+
+func HandleRequests(c configuration.Configuration) {
+	config = c
 	http.HandleFunc("/trigger", trigger)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -93,6 +97,13 @@ func checkPermissions(p triggerPayload) error {
 				AuthorAssociationCOLLABORATOR,
 			),
 		)
+	}
+
+	if !config.ContainsRepository("github.com/" + p.Respository.FullName) {
+		return errors.New(fmt.Sprintf(
+			"%v is not a configured repository",
+			p.Respository.FullName,
+		))
 	}
 	return nil
 }
