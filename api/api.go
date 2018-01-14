@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/mxinden/automation/execution"
 	"log"
 	"net/http"
@@ -22,9 +24,18 @@ type repository struct {
 	FullName string `json:"full_name"`
 }
 
+type AuthorAssociation string
+
+var (
+	AuthorAssociationCOLLABORATOR AuthorAssociation = "COLLABORATOR"
+	AuthorAssociationMEMBER       AuthorAssociation = "MEMBER"
+	AuthorAssociationOWNER        AuthorAssociation = "OWNER"
+)
+
 type pullRequest struct {
-	Head   head `json:"head"`
-	Number int  `json:"number"`
+	Head              head              `json:"head"`
+	Number            int               `json:"number"`
+	AuthorAssociation AuthorAssociation `json:"author_association"`
 }
 
 type head struct {
@@ -36,7 +47,6 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var payload triggerPayload
-	w.Write([]byte("project triggered\n"))
 
 	decoder := json.NewDecoder(r.Body)
 
@@ -44,6 +54,13 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error decoding body: %v", err)
 		http.Error(w, "can't decode body", http.StatusBadRequest)
+		return
+	}
+
+	err = checkPermissions(payload)
+	if err != nil {
+		log.Print(err)
+		http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
 		return
 	}
 
@@ -61,4 +78,30 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 		output,
 		exitCode,
 	)
+}
+
+func checkPermissions(p triggerPayload) error {
+	if !equalsAny(
+		p.PullRequest.AuthorAssociation,
+		[]AuthorAssociation{AuthorAssociationCOLLABORATOR, AuthorAssociationMEMBER, AuthorAssociationOWNER},
+	) {
+		return errors.New(
+			fmt.Sprintf(
+				"event author not one of %v, %v, %v",
+				AuthorAssociationOWNER,
+				AuthorAssociationMEMBER,
+				AuthorAssociationCOLLABORATOR,
+			),
+		)
+	}
+	return nil
+}
+
+func equalsAny(s AuthorAssociation, list []AuthorAssociation) bool {
+	for _, e := range list {
+		if e == s {
+			return true
+		}
+	}
+	return false
 }
