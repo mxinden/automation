@@ -81,13 +81,23 @@ func getJobResult(kubeClient *kubernetes.Clientset, jobUID types.UID) (string, i
 
 	log.Println("retrieve output and exit code of pod")
 	for _, pod := range pods {
+		exitCode = pod.Status.InitContainerStatuses[0].State.Terminated.ExitCode
+		if exitCode != 0 {
+			options := &v1.PodLogOptions{Container: "repository"}
+			req := kubeClient.CoreV1().Pods(Namespace).GetLogs(pod.ObjectMeta.Name, options)
+			result, err := req.Do().Raw()
+			if err != nil {
+				return output, exitCode, err
+			}
+			return string(result), exitCode, nil
+		}
 		exitCode = pod.Status.ContainerStatuses[0].State.Terminated.ExitCode
 		req := kubeClient.CoreV1().Pods(Namespace).GetLogs(pod.ObjectMeta.Name, &v1.PodLogOptions{})
 		result, err := req.Do().Raw()
 		if err != nil {
 			return output, exitCode, err
 		}
-		output = string(result)
+		return string(result), exitCode, nil
 	}
 
 	return output, exitCode, nil

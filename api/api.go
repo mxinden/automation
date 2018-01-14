@@ -106,7 +106,7 @@ func checkPermissions(c configuration.Configuration, p triggerPayload) error {
 		)
 	}
 
-	if !config.ContainsRepository("github.com/" + p.Respository.FullName) {
+	if !c.ContainsRepository("github.com/" + p.Respository.FullName) {
 		return errors.New(fmt.Sprintf(
 			"%v is not a configured repository",
 			p.Respository.FullName,
