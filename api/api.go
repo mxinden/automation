@@ -1,14 +1,15 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mxinden/automation/configuration"
-	"github.com/mxinden/automation/execution"
 	"log"
 	"net/http"
-	"strings"
+	"os"
+
+	"github.com/google/go-github/github"
+	"github.com/mxinden/automation/configuration"
+	"github.com/mxinden/automation/execution"
 )
 
 var config configuration.Configuration
@@ -55,29 +56,41 @@ type head struct {
 }
 
 func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
-	var payload triggerPayload
-
-	decoder := json.NewDecoder(r.Body)
-
-	err := decoder.Decode(&payload)
+	s := os.Getenv("GITHUB_WEBHOOK_SECRET")
+	payload, err := github.ValidatePayload(r, []byte(s))
 	if err != nil {
-		log.Printf("Error decoding body: %v", err)
-		http.Error(w, "can't decode body", http.StatusBadRequest)
+		log.Printf("Error validating payload: %v", err)
+		http.Error(w, "error validating payload", http.StatusBadRequest)
 		return
 	}
 
-	err = checkPermissions(api.config, payload)
+	event, err := github.ParseWebHook(github.WebHookType(r), payload)
+	if err != nil {
+		log.Printf("Error parsing payload: %v", err)
+		http.Error(w, "error parsing payload", http.StatusBadRequest)
+		return
+	}
+
+	pullRequestEvent, ok := event.(*github.PullRequestEvent)
+	if !ok {
+		log.Printf("Error, expecting pull request event but got: %v", github.WebHookType(r))
+		http.Error(w, "error expecting pull request event", http.StatusBadRequest)
+		return
+	}
+
+	err = checkPermissions(api.config, pullRequestEvent)
 	if err != nil {
 		log.Print(err)
 		http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
 		return
 	}
 
-	fullName := strings.Split(payload.Respository.FullName, "/")
-
-	e := execution.NewExecution(fullName[0], fullName[1], payload.PullRequest.Head.Sha, payload.PullRequest.Number)
+	e := execution.NewExecution(
+		pullRequestEvent.Repo.GetOwner().GetLogin(),
+		pullRequestEvent.Repo.GetName(),
+		*pullRequestEvent.PullRequest.GetHead().SHA,
+		pullRequestEvent.PullRequest.GetNumber(),
+	)
 	output, exitCode, err := e.Execute()
 	if err != nil {
 		log.Fatal(err)
@@ -85,15 +98,17 @@ func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf(
 		"testing repository %v returned:\n%v\nwith exit code: %v",
-		payload.Respository.FullName,
+		pullRequestEvent.GetRepo().GetFullName(),
 		output,
 		exitCode,
 	)
 }
 
-func checkPermissions(c configuration.Configuration, p triggerPayload) error {
+func checkPermissions(c configuration.Configuration, event *github.PullRequestEvent) error {
+	event.PullRequest.GetAuthorAssociation()
+
 	if !equalsAny(
-		p.PullRequest.AuthorAssociation,
+		event.PullRequest.GetAuthorAssociation(),
 		[]AuthorAssociation{AuthorAssociationCOLLABORATOR, AuthorAssociationMEMBER, AuthorAssociationOWNER},
 	) {
 		return errors.New(
@@ -106,18 +121,18 @@ func checkPermissions(c configuration.Configuration, p triggerPayload) error {
 		)
 	}
 
-	if !c.ContainsRepository("github.com/" + p.Respository.FullName) {
+	if !c.ContainsRepository("github.com/" + event.Repo.GetFullName()) {
 		return errors.New(fmt.Sprintf(
 			"%v is not a configured repository",
-			p.Respository.FullName,
+			event.Repo.GetFullName(),
 		))
 	}
 	return nil
 }
 
-func equalsAny(s AuthorAssociation, list []AuthorAssociation) bool {
+func equalsAny(s string, list []AuthorAssociation) bool {
 	for _, e := range list {
-		if e == s {
+		if string(e) == s {
 			return true
 		}
 	}
