@@ -1,0 +1,2 @@
+image: "golang"
+command: "go fmt . && git diff --exit-code"
