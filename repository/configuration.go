@@ -10,6 +10,7 @@ import (
 
 type Configuration struct {
 	Command string `yaml:"command"`
+	Image   string `yaml:"image"`
 }
 
 func GetConfigurationFromGitHub(owner string, repositoryName string, ref string) (Configuration, error) {

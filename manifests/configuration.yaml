@@ -1,3 +1,4 @@
 repositories:
         - github.com/mxinden/sample-project
+        - github.com/mxinden/automation
 namespace: automation

@@ -28,7 +28,7 @@ func RunRepositoryTest(config repository.Configuration, owner, name, sha string)
 	}
 
 	repositoryURL := fmt.Sprintf("https://github.com/%v/%v.git", owner, name)
-	output, exitCode, err = createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, repositoryURL, sha, strings.Split(config.Command, " "))
+	output, exitCode, err = createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, repositoryURL, sha, strings.Split(config.Command, " "), config.Image)
 	if err != nil {
 		return output, exitCode, err
 	}
@@ -36,11 +36,11 @@ func RunRepositoryTest(config repository.Configuration, owner, name, sha string)
 	return output, exitCode, nil
 }
 
-func createJob(jobName string, kubeClient *kubernetes.Clientset, repositoryURL, sha string, command []string) (string, int32, error) {
+func createJob(jobName string, kubeClient *kubernetes.Clientset, repositoryURL, sha string, command []string, image string) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
-	job := makeJobDefinition(jobName, repositoryURL, sha, command)
+	job := makeJobDefinition(jobName, repositoryURL, sha, command, image)
 	log.Println("create k8s job")
 	job, err := kubeClient.BatchV1().Jobs(Namespace).Create(job)
 	if err != nil {
@@ -138,7 +138,7 @@ func createKubeClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func makeJobDefinition(jobName, repositoryURL, ref string, command []string) *batchv1.Job {
+func makeJobDefinition(jobName, repositoryURL, ref string, command []string, image string) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobName,
@@ -153,7 +153,7 @@ func makeJobDefinition(jobName, repositoryURL, ref string, command []string) *ba
 					Containers: []v1.Container{
 						{
 							Name:       "debian",
-							Image:      "debian",
+							Image:      image,
 							Args:       command,
 							WorkingDir: "/repository",
 							VolumeMounts: []v1.VolumeMount{
