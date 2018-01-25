@@ -149,16 +149,17 @@ func makeJobDefinition(jobName, repositoryURL, ref string, command string, image
 					Name: "pi",
 				},
 				Spec: v1.PodSpec{
+					ServiceAccountName: "automation",
 					Containers: []v1.Container{
 						{
 							Name:       "debian",
 							Image:      image,
 							Args:       []string{"/bin/bash", "-c", command},
-							WorkingDir: "/repository",
+							WorkingDir: "/go/src/github.com/mxinden/automation",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "repository",
-									MountPath: "/repository",
+									MountPath: "/go/src/github.com/mxinden/automation",
 								},
 							},
 						},
@@ -168,7 +169,7 @@ func makeJobDefinition(jobName, repositoryURL, ref string, command string, image
 							Name:    "repository",
 							Image:   "governmentpaas/git-ssh",
 							Command: []string{"/bin/bash", "-c"},
-							Args:    []string{fmt.Sprintf("git clone $(REPOSITORY) /repository && cd /repository && git checkout %v", ref)},
+							Args:    []string{fmt.Sprintf("git clone $(REPOSITORY) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout %v", ref)},
 							Env: []v1.EnvVar{
 								{
 									Name:  "REPOSITORY",
@@ -178,7 +179,7 @@ func makeJobDefinition(jobName, repositoryURL, ref string, command string, image
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "repository",
-									MountPath: "/repository",
+									MountPath: "/go/src/github.com/mxinden/automation",
 								},
 							},
 						},

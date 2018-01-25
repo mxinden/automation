@@ -1,8 +1,6 @@
 package kubernetes
 
 import (
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"strconv"
 	"strings"
 	"testing"
@@ -11,12 +9,20 @@ import (
 
 func TestRepositoryInitContainer(t *testing.T) {
 	t.Parallel()
-	command := []string{"make", "test"}
-	kubeClient, err := createExternalKubeClient()
+	Namespace = "automation"
+	command := "./test.sh"
+	kubeClient, err := createKubeClient()
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, exitCode, err := createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command)
+	output, exitCode, err := createJob(
+		strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)),
+		kubeClient,
+		"https://github.com/mxinden/sample-project",
+		"master",
+		command,
+		"golang",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,12 +39,13 @@ func TestRepositoryInitContainer(t *testing.T) {
 
 func TestExecuteCommand(t *testing.T) {
 	t.Parallel()
-	command := []string{"echo", "test"}
-	kubeClient, err := createExternalKubeClient()
+	Namespace = "automation"
+	command := "echo test"
+	kubeClient, err := createKubeClient()
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, exitCode, err := createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command)
+	output, exitCode, err := createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,12 +62,13 @@ func TestExecuteCommand(t *testing.T) {
 
 func TestExecuteCommandForNonZeroExitCode(t *testing.T) {
 	t.Parallel()
-	command := []string{"false"}
-	kubeClient, err := createExternalKubeClient()
+	Namespace = "automation"
+	command := "false"
+	kubeClient, err := createKubeClient()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, exitCode, err := createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command)
+	_, exitCode, err := createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,22 +76,4 @@ func TestExecuteCommandForNonZeroExitCode(t *testing.T) {
 	if exitCode == 0 {
 		t.Fatalf("expected exit code to be non-zero")
 	}
-}
-
-func createExternalKubeClient() (*kubernetes.Clientset, error) {
-	kubeconfig := "/home/mxinden/.kube/config"
-
-	// use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return clientset, nil
 }

@@ -1,2 +1,2 @@
 image: "golang"
-command: "go fmt . && git diff --exit-code"
+command: "set -ex && go fmt . && git diff --exit-code && go test -v $(go list ./...)"
