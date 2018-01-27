@@ -15,11 +15,13 @@ import (
 	"time"
 )
 
-type Executor interface {
-	// TODO: Have RunJob only take env variables and a job instead of owner,
-	// name sha, ...
-	RunJob(config repository.Configuration, owner, name, sha string) (string, int32, error)
-}
+type ExecutionStatus string
+
+var (
+	ExecutionStatusPending ExecutionStatus = "pending"
+	ExecutionStatusSuccess ExecutionStatus = "success"
+	ExecutionStatusFailure ExecutionStatus = "failure"
+)
 
 type KubernetesExecutor struct {
 	namespace string
@@ -29,6 +31,43 @@ func NewKubernetesExecutor(ns string) KubernetesExecutor {
 	return KubernetesExecutor{
 		namespace: ns,
 	}
+}
+
+type Repository = interface {
+	GetConfiguration(string) (repository.Configuration, error)
+	ChangeStatus(string, string) error
+	GetOwner() string
+	GetName() string
+}
+
+func (k *KubernetesExecutor) Execute(r Repository, sha string) (string, int32, error) {
+	output := ""
+	exitCode := int32(1)
+
+	err := r.ChangeStatus(sha, string(ExecutionStatusPending))
+	if err != nil {
+		return output, exitCode, err
+	}
+
+	config, err := r.GetConfiguration(sha)
+	if err != nil {
+		return output, exitCode, err
+	}
+
+	output, exitCode, err = k.RunJob(config, r.GetOwner(), r.GetName(), sha)
+	if exitCode == 0 {
+		err := r.ChangeStatus(sha, string(ExecutionStatusSuccess))
+		if err != nil {
+			return output, exitCode, err
+		}
+	} else {
+		err := r.ChangeStatus(sha, string(ExecutionStatusFailure))
+		if err != nil {
+			return output, exitCode, err
+		}
+	}
+	return output, exitCode, err
+
 }
 
 func (k *KubernetesExecutor) RunJob(config repository.Configuration, owner, name, sha string) (string, int32, error) {
