@@ -7,7 +7,8 @@ import (
 
 func TestGetRepositoryConfiguration(t *testing.T) {
 	t.Parallel()
-	config, err := GetConfigurationFromGitHub("mxinden", "sample-project", "master")
+	r := NewGithubRepository("mxinden", "sample-project")
+	config, err := r.GetConfiguration("master")
 	if err != nil {
 		t.Fatal(err)
 	}

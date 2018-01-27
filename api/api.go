@@ -9,33 +9,34 @@ import (
 
 	"github.com/google/go-github/github"
 	"github.com/mxinden/automation/configuration"
-	"github.com/mxinden/automation/execution"
-	"github.com/mxinden/automation/kubernetes"
+	"github.com/mxinden/automation/repository"
 )
 
 var config configuration.Configuration
 
 type API struct {
 	config   configuration.Configuration
-	executor kubernetes.Executor
+	executor executor
 }
 
-func NewAPI(c configuration.Configuration, e kubernetes.Executor) API {
+type executor interface {
+	Execute(Repository, string) (string, int32, error)
+}
+
+type Repository = interface {
+	GetConfiguration(string) (repository.Configuration, error)
+	ChangeStatus(string, string) error
+	GetOwner() string
+	GetName() string
+}
+
+func NewAPI(c configuration.Configuration, e executor) API {
 	return API{config: c, executor: e}
 }
 
 func (api *API) HandleRequests() {
 	http.HandleFunc("/trigger", api.triggerHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-type triggerPayload struct {
-	Respository repository  `json:"repository"`
-	PullRequest pullRequest `json:"pull_request"`
-}
-
-type repository struct {
-	FullName string `json:"full_name"`
 }
 
 type AuthorAssociation string
@@ -45,17 +46,6 @@ var (
 	AuthorAssociationMEMBER       AuthorAssociation = "MEMBER"
 	AuthorAssociationOWNER        AuthorAssociation = "OWNER"
 )
-
-type pullRequest struct {
-	Head              head              `json:"head"`
-	Number            int               `json:"number"`
-	AuthorAssociation AuthorAssociation `json:"author_association"`
-}
-
-type head struct {
-	Ref string `json:"ref"`
-	Sha string `json:"sha"`
-}
 
 func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
 	s := os.Getenv("GITHUB_WEBHOOK_SECRET")
@@ -87,14 +77,12 @@ func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e := execution.NewExecution(
-		api.executor,
+	repo := repository.NewGithubRepository(
 		pullRequestEvent.Repo.GetOwner().GetLogin(),
 		pullRequestEvent.Repo.GetName(),
-		*pullRequestEvent.PullRequest.GetHead().SHA,
-		pullRequestEvent.PullRequest.GetNumber(),
 	)
-	output, exitCode, err := e.Execute()
+
+	output, exitCode, err := api.executor.Execute(repo, *pullRequestEvent.PullRequest.GetHead().SHA)
 	if err != nil {
 		log.Fatal(err)
 	}
