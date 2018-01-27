@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/mxinden/automation/configuration"
+	"github.com/mxinden/automation/kubernetes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,7 +22,8 @@ func TestTableTriggerEndpoint(t *testing.T) {
 	c := configuration.Configuration{
 		Repositories: []string{"github.com/mxinden/sample-project"},
 	}
-	automationAPI := NewAPI(c)
+	executor := kubernetes.NewKubernetesExecutor("automation")
+	automationAPI := NewAPI(c, &executor)
 
 	for _, tt := range triggerEndpoinTests {
 		req, err := httpReqFromFile(tt.requestBodyPath)

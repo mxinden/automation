@@ -19,6 +19,7 @@ var (
 )
 
 type Execution struct {
+	Executor       kubernetes.Executor
 	Owner          string
 	RepositoryName string
 	Sha            string
@@ -26,15 +27,15 @@ type Execution struct {
 	PRNumber       int
 }
 
-func NewExecution(owner, repositoryName, sha string, prNumber int) Execution {
-	e := Execution{
+func NewExecution(e kubernetes.Executor, owner, repositoryName, sha string, prNumber int) Execution {
+	return Execution{
+		Executor:       e,
 		Owner:          owner,
 		RepositoryName: repositoryName,
 		Sha:            sha,
 		Status:         ExecutionStatusPending,
 		PRNumber:       prNumber,
 	}
-	return e
 }
 
 func (e *Execution) Execute() (string, int32, error) {
@@ -51,7 +52,7 @@ func (e *Execution) Execute() (string, int32, error) {
 		return output, exitCode, err
 	}
 
-	output, exitCode, err = kubernetes.RunRepositoryTest(config, e.Owner, e.RepositoryName, e.Sha)
+	output, exitCode, err = e.Executor.RunJob(config, e.Owner, e.RepositoryName, e.Sha)
 	if exitCode == 0 {
 		err := e.changeStatus(ExecutionStatusSuccess)
 		if err != nil {

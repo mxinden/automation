@@ -15,9 +15,23 @@ import (
 	"time"
 )
 
-var Namespace string
+type Executor interface {
+	// TODO: Have RunJob only take env variables and a job instead of owner,
+	// name sha, ...
+	RunJob(config repository.Configuration, owner, name, sha string) (string, int32, error)
+}
 
-func RunRepositoryTest(config repository.Configuration, owner, name, sha string) (string, int32, error) {
+type KubernetesExecutor struct {
+	namespace string
+}
+
+func NewKubernetesExecutor(ns string) KubernetesExecutor {
+	return KubernetesExecutor{
+		namespace: ns,
+	}
+}
+
+func (k *KubernetesExecutor) RunJob(config repository.Configuration, owner, name, sha string) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
@@ -27,7 +41,7 @@ func RunRepositoryTest(config repository.Configuration, owner, name, sha string)
 	}
 
 	repositoryURL := fmt.Sprintf("https://github.com/%v/%v.git", owner, name)
-	output, exitCode, err = createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, repositoryURL, sha, config.Command, config.Image)
+	output, exitCode, err = k.createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, repositoryURL, sha, config.Command, config.Image)
 	if err != nil {
 		return output, exitCode, err
 	}
@@ -35,20 +49,20 @@ func RunRepositoryTest(config repository.Configuration, owner, name, sha string)
 	return output, exitCode, nil
 }
 
-func createJob(jobName string, kubeClient *kubernetes.Clientset, repositoryURL, sha string, command string, image string) (string, int32, error) {
+func (k *KubernetesExecutor) createJob(jobName string, kubeClient *kubernetes.Clientset, repositoryURL, sha string, command string, image string) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
 	job := makeJobDefinition(jobName, repositoryURL, sha, command, image)
 	log.Println("create k8s job")
-	job, err := kubeClient.BatchV1().Jobs(Namespace).Create(job)
+	job, err := kubeClient.BatchV1().Jobs(k.namespace).Create(job)
 	if err != nil {
 		return output, exitCode, err
 	}
 
 	log.Println("wait for job to finish")
 	err = wait.Poll(time.Second, 5*time.Minute, func() (bool, error) {
-		job, err := kubeClient.BatchV1().Jobs(Namespace).Get(job.ObjectMeta.Name, metav1.GetOptions{})
+		job, err := kubeClient.BatchV1().Jobs(k.namespace).Get(job.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -61,7 +75,7 @@ func createJob(jobName string, kubeClient *kubernetes.Clientset, repositoryURL, 
 		return output, exitCode, err
 	}
 
-	output, exitCode, err = getJobResult(kubeClient, job.UID)
+	output, exitCode, err = k.getJobResult(kubeClient, job.UID)
 	if err != nil {
 		return output, exitCode, err
 	}
@@ -69,11 +83,11 @@ func createJob(jobName string, kubeClient *kubernetes.Clientset, repositoryURL, 
 	return output, exitCode, nil
 }
 
-func getJobResult(kubeClient *kubernetes.Clientset, jobUID types.UID) (string, int32, error) {
+func (k *KubernetesExecutor) getJobResult(kubeClient *kubernetes.Clientset, jobUID types.UID) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
-	pods, err := getPodsOfJob(kubeClient, Namespace, jobUID)
+	pods, err := getPodsOfJob(kubeClient, k.namespace, jobUID)
 	if err != nil {
 		return output, exitCode, err
 	}
@@ -83,7 +97,7 @@ func getJobResult(kubeClient *kubernetes.Clientset, jobUID types.UID) (string, i
 		exitCode = pod.Status.InitContainerStatuses[0].State.Terminated.ExitCode
 		if exitCode != 0 {
 			options := &v1.PodLogOptions{Container: "repository"}
-			req := kubeClient.CoreV1().Pods(Namespace).GetLogs(pod.ObjectMeta.Name, options)
+			req := kubeClient.CoreV1().Pods(k.namespace).GetLogs(pod.ObjectMeta.Name, options)
 			result, err := req.Do().Raw()
 			if err != nil {
 				return output, exitCode, err
@@ -91,7 +105,7 @@ func getJobResult(kubeClient *kubernetes.Clientset, jobUID types.UID) (string, i
 			return string(result), exitCode, nil
 		}
 		exitCode = pod.Status.ContainerStatuses[0].State.Terminated.ExitCode
-		req := kubeClient.CoreV1().Pods(Namespace).GetLogs(pod.ObjectMeta.Name, &v1.PodLogOptions{})
+		req := kubeClient.CoreV1().Pods(k.namespace).GetLogs(pod.ObjectMeta.Name, &v1.PodLogOptions{})
 		result, err := req.Do().Raw()
 		if err != nil {
 			return output, exitCode, err
