@@ -9,13 +9,13 @@ import (
 
 func TestRepositoryInitContainer(t *testing.T) {
 	t.Parallel()
-	Namespace = "automation"
+	k := NewKubernetesExecutor("automation")
 	command := "./test.sh"
 	kubeClient, err := createKubeClient()
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, exitCode, err := createJob(
+	output, exitCode, err := k.createJob(
 		strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)),
 		kubeClient,
 		"https://github.com/mxinden/sample-project",
@@ -39,13 +39,13 @@ func TestRepositoryInitContainer(t *testing.T) {
 
 func TestExecuteCommand(t *testing.T) {
 	t.Parallel()
-	Namespace = "automation"
+	k := NewKubernetesExecutor("automation")
 	command := "echo test"
 	kubeClient, err := createKubeClient()
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, exitCode, err := createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
+	output, exitCode, err := k.createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,13 +62,13 @@ func TestExecuteCommand(t *testing.T) {
 
 func TestExecuteCommandForNonZeroExitCode(t *testing.T) {
 	t.Parallel()
-	Namespace = "automation"
+	k := NewKubernetesExecutor("automation")
 	command := "false"
 	kubeClient, err := createKubeClient()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, exitCode, err := createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
+	_, exitCode, err := k.createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
 	if err != nil {
 		t.Fatal(err)
 	}

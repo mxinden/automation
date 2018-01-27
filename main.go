@@ -12,9 +12,9 @@ func main() {
 		panic(err)
 	}
 
-	kubernetes.Namespace = config.Namespace
+	kubernetesExecutor := kubernetes.NewKubernetesExecutor(config.Namespace)
 
-	automationAPI := api.NewAPI(config)
+	automationAPI := api.NewAPI(config, &kubernetesExecutor)
 
 	automationAPI.HandleRequests()
 }

@@ -10,16 +10,18 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/mxinden/automation/configuration"
 	"github.com/mxinden/automation/execution"
+	"github.com/mxinden/automation/kubernetes"
 )
 
 var config configuration.Configuration
 
 type API struct {
-	config configuration.Configuration
+	config   configuration.Configuration
+	executor kubernetes.Executor
 }
 
-func NewAPI(c configuration.Configuration) API {
-	return API{config: c}
+func NewAPI(c configuration.Configuration, e kubernetes.Executor) API {
+	return API{config: c, executor: e}
 }
 
 func (api *API) HandleRequests() {
@@ -86,6 +88,7 @@ func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	e := execution.NewExecution(
+		api.executor,
 		pullRequestEvent.Repo.GetOwner().GetLogin(),
 		pullRequestEvent.Repo.GetName(),
 		*pullRequestEvent.PullRequest.GetHead().SHA,
