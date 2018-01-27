@@ -1,4 +1,4 @@
-package repository
+package execution
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 
 func TestGetRepositoryConfiguration(t *testing.T) {
 	t.Parallel()
-	r := NewGithubRepository("mxinden", "sample-project")
-	config, err := r.GetConfiguration("master")
+	r := NewGithubExecution("mxinden", "sample-project", "master", 1)
+	config, err := r.GetConfiguration()
 	if err != nil {
 		t.Fatal(err)
 	}

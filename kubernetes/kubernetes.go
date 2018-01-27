@@ -2,7 +2,7 @@ package kubernetes
 
 import (
 	"fmt"
-	"github.com/mxinden/automation/repository"
+	"github.com/mxinden/automation/execution"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,14 +13,6 @@ import (
 	"log"
 	"strconv"
 	"time"
-)
-
-type ExecutionStatus string
-
-var (
-	ExecutionStatusPending ExecutionStatus = "pending"
-	ExecutionStatusSuccess ExecutionStatus = "success"
-	ExecutionStatusFailure ExecutionStatus = "failure"
 )
 
 type KubernetesExecutor struct {
@@ -34,43 +26,46 @@ func NewKubernetesExecutor(ns string) KubernetesExecutor {
 }
 
 type Repository = interface {
-	GetConfiguration(string) (repository.Configuration, error)
-	ChangeStatus(string, string) error
+	GetConfiguration() (execution.Configuration, error)
+	SetStatusPending() error
+	SetStatusSuccess(int32, string) error
+	SetStatusFailure(int32, string) error
 	GetOwner() string
 	GetName() string
+	GetRef() string
 }
 
-func (k *KubernetesExecutor) Execute(r Repository, sha string) (string, int32, error) {
+func (k *KubernetesExecutor) Execute(r Repository) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
-	err := r.ChangeStatus(sha, string(ExecutionStatusPending))
+	err := r.SetStatusPending()
 	if err != nil {
 		return output, exitCode, err
 	}
 
-	config, err := r.GetConfiguration(sha)
+	config, err := r.GetConfiguration()
 	if err != nil {
 		return output, exitCode, err
 	}
 
-	output, exitCode, err = k.RunJob(config, r.GetOwner(), r.GetName(), sha)
+	output, exitCode, err = k.RunJob(config, r.GetOwner(), r.GetName(), r.GetRef())
 	if exitCode == 0 {
-		err := r.ChangeStatus(sha, string(ExecutionStatusSuccess))
+		err := r.SetStatusSuccess(exitCode, output)
 		if err != nil {
 			return output, exitCode, err
 		}
 	} else {
-		err := r.ChangeStatus(sha, string(ExecutionStatusFailure))
+		err := r.SetStatusSuccess(exitCode, output)
 		if err != nil {
 			return output, exitCode, err
 		}
 	}
-	return output, exitCode, err
 
+	return output, exitCode, err
 }
 
-func (k *KubernetesExecutor) RunJob(config repository.Configuration, owner, name, sha string) (string, int32, error) {
+func (k *KubernetesExecutor) RunJob(config execution.Configuration, owner, name, sha string) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 

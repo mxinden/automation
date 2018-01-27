@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-github/github"
 	"github.com/mxinden/automation/configuration"
-	"github.com/mxinden/automation/repository"
+	"github.com/mxinden/automation/execution"
 )
 
 var config configuration.Configuration
@@ -20,14 +20,17 @@ type API struct {
 }
 
 type executor interface {
-	Execute(Repository, string) (string, int32, error)
+	Execute(Execution) (string, int32, error)
 }
 
-type Repository = interface {
-	GetConfiguration(string) (repository.Configuration, error)
-	ChangeStatus(string, string) error
+type Execution = interface {
+	GetConfiguration() (execution.Configuration, error)
+	SetStatusPending() error
+	SetStatusSuccess(int32, string) error
+	SetStatusFailure(int32, string) error
 	GetOwner() string
 	GetName() string
+	GetRef() string
 }
 
 func NewAPI(c configuration.Configuration, e executor) API {
@@ -77,14 +80,16 @@ func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repo := repository.NewGithubRepository(
+	execution := execution.NewGithubExecution(
 		pullRequestEvent.Repo.GetOwner().GetLogin(),
 		pullRequestEvent.Repo.GetName(),
+		*pullRequestEvent.PullRequest.GetHead().SHA,
+		pullRequestEvent.PullRequest.GetNumber(),
 	)
 
-	output, exitCode, err := api.executor.Execute(repo, *pullRequestEvent.PullRequest.GetHead().SHA)
+	output, exitCode, err := api.executor.Execute(execution)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	log.Printf(
