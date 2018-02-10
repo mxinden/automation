@@ -56,7 +56,7 @@ func (k *KubernetesExecutor) Execute(r Repository) (string, int32, error) {
 			return output, exitCode, err
 		}
 	} else {
-		err := r.SetStatusSuccess(exitCode, output)
+		err := r.SetStatusFailure(exitCode, output)
 		if err != nil {
 			return output, exitCode, err
 		}

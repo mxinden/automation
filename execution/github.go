@@ -96,7 +96,7 @@ func (e *GithubExecution) SetStatusSuccess(exitCode int32, logs string) error {
 	e.exitCode = exitCode
 	e.logs = logs
 
-	err := e.addResultAsPRComment()
+	err := e.addResultAsPRComment(ExecutionStatusSuccess)
 	if err != nil {
 		return err
 	}
@@ -108,14 +108,14 @@ func (e *GithubExecution) SetStatusFailure(exitCode int32, logs string) error {
 	e.exitCode = exitCode
 	e.logs = logs
 
-	err := e.addResultAsPRComment()
+	err := e.addResultAsPRComment(ExecutionStatusFailure)
 	if err != nil {
 		return err
 	}
 	return e.updateGithubCommitStatus(ExecutionStatusFailure)
 }
 
-func (r *GithubExecution) updateGithubCommitStatus(s ExecutionStatus) error {
+func (e *GithubExecution) updateGithubCommitStatus(s ExecutionStatus) error {
 	context := "Automation"
 	state := string(s)
 	status := github.RepoStatus{
@@ -123,12 +123,12 @@ func (r *GithubExecution) updateGithubCommitStatus(s ExecutionStatus) error {
 		Context: &context,
 	}
 
-	_, _, err := r.client.Repositories.CreateStatus(r.ctx, r.Owner, r.Name, r.ref, &status)
+	_, _, err := e.client.Repositories.CreateStatus(e.ctx, e.Owner, e.Name, e.ref, &status)
 	return err
 }
 
-func (e *GithubExecution) addResultAsPRComment() error {
-	body := "automation results:<details><summary>Logs</summary><p>\n\n```\n" + e.logs + "\n```\n</p></details>"
+func (e *GithubExecution) addResultAsPRComment(s ExecutionStatus) error {
+	body := "Result for " + e.GetRef() + ": " + string(s) + "<details><summary>Logs</summary><p>\n\n```\n" + e.logs + "\n```\n</p></details>"
 	comment := github.IssueComment{
 		Body: &body,
 	}
