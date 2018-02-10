@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"github.com/mxinden/automation/execution"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,11 +16,12 @@ func TestRepositoryInitContainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	e := execution.NewGithubExecution("mxinden", "sample-project", "master", 1)
 	output, exitCode, err := k.createJob(
 		strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)),
 		kubeClient,
-		"https://github.com/mxinden/sample-project",
-		"master",
+		e,
 		command,
 		"golang",
 	)
@@ -45,7 +47,8 @@ func TestExecuteCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, exitCode, err := k.createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
+	e := execution.NewGithubExecution("mxinden", "sample-project", "master", 1)
+	output, exitCode, err := k.createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, e, command, "golang")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +71,8 @@ func TestExecuteCommandForNonZeroExitCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, exitCode, err := k.createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, "https://github.com/mxinden/sample-project", "master", command, "golang")
+	e := execution.NewGithubExecution("mxinden", "sample-project", "master", 1)
+	_, exitCode, err := k.createJob(strings.ToLower(t.Name()+strconv.FormatInt(time.Now().Unix(), 10)), kubeClient, e, command, "golang")
 	if err != nil {
 		t.Fatal(err)
 	}
