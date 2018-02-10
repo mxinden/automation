@@ -35,37 +35,44 @@ type Repository = interface {
 	GetRef() string
 }
 
-func (k *KubernetesExecutor) Execute(r Repository) (string, int32, error) {
+func (k *KubernetesExecutor) Execute(r Repository) error {
 	output := ""
 	exitCode := int32(1)
 
 	err := r.SetStatusPending()
 	if err != nil {
-		return output, exitCode, err
+		return err
 	}
 
 	config, err := r.GetConfiguration()
 	if err != nil {
-		return output, exitCode, err
+		return err
 	}
 
-	output, exitCode, err = k.RunJob(config, r)
-	if exitCode == 0 {
-		err := r.SetStatusSuccess(exitCode, output)
-		if err != nil {
-			return output, exitCode, err
-		}
-	} else {
-		err := r.SetStatusFailure(exitCode, output)
-		if err != nil {
-			return output, exitCode, err
+	fmt.Println(config)
+
+	for _, stage := range config.Stages {
+		stageOutput := ""
+
+		stageOutput, exitCode, err = k.RunJob(stage, r)
+		output = output + stageOutput
+		if exitCode != int32(0) {
+			err := r.SetStatusFailure(exitCode, output)
+			if err != nil {
+				return err
+			}
+			return nil
 		}
 	}
+	err = r.SetStatusSuccess(exitCode, output)
+	if err != nil {
+		return err
+	}
 
-	return output, exitCode, err
+	return nil
 }
 
-func (k *KubernetesExecutor) RunJob(config execution.Configuration, r Repository) (string, int32, error) {
+func (k *KubernetesExecutor) RunJob(stage execution.Stage, r Repository) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
@@ -74,7 +81,7 @@ func (k *KubernetesExecutor) RunJob(config execution.Configuration, r Repository
 		return output, exitCode, err
 	}
 
-	output, exitCode, err = k.createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, r, config.Command, config.Image)
+	output, exitCode, err = k.createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, r, stage.Command, stage.Image)
 	if err != nil {
 		return output, exitCode, err
 	}
@@ -203,6 +210,20 @@ func makeJobDefinition(jobName string, r Repository, command string, image strin
 							Image:      image,
 							Args:       []string{"/bin/bash", "-c", command},
 							WorkingDir: "/go/src/github.com/mxinden/automation",
+							Env: []v1.EnvVar{
+								{
+									Name: "GITHUB_API_TOKEN",
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: "github-api-token",
+											},
+
+											Key: "GITHUB_OAUTH_TOKEN",
+										},
+									},
+								},
+							},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "repository",

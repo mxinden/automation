@@ -1,7 +1,6 @@
 package execution
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -13,5 +12,7 @@ func TestGetRepositoryConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(config.Command)
+	if config.Stages[0].Command != "./test.sh" {
+		t.Fatalf("expected %v but got %v", "./test.sh", config.Stages[0].Command)
+	}
 }

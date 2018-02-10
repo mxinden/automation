@@ -45,12 +45,24 @@ func (e *GithubExecution) GetName() string {
 
 func (e *GithubExecution) GetRef() string {
 	return e.ref
+}
 
+func (e *GithubExecution) GetStatus() ExecutionStatus {
+	return e.status
+}
+
+func (e *GithubExecution) GetLogs() string {
+	return e.logs
 }
 
 type Configuration struct {
+	Stages []Stage `yaml:"stages"`
+}
+
+type Stage struct {
 	Command string `yaml:"command"`
 	Image   string `yaml:"image"`
+	Name    string `yaml:"name"`
 }
 
 func (r *GithubExecution) GetConfiguration() (Configuration, error) {

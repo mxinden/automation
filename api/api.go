@@ -20,7 +20,7 @@ type API struct {
 }
 
 type executor interface {
-	Execute(Execution) (string, int32, error)
+	Execute(Execution) error
 }
 
 type Execution = interface {
@@ -87,16 +87,11 @@ func (api *API) triggerHandler(w http.ResponseWriter, r *http.Request) {
 		pullRequestEvent.PullRequest.GetNumber(),
 	)
 
-	output, exitCode, err := api.executor.Execute(execution)
-	if err != nil {
-		log.Println(err)
-	}
+	go log.Println(api.executor.Execute(execution))
 
 	log.Printf(
-		"testing repository %v returned:\n%v\nwith exit code: %v",
+		"Triggered execution for repository %v",
 		pullRequestEvent.GetRepo().GetFullName(),
-		output,
-		exitCode,
 	)
 }
 
