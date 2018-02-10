@@ -49,7 +49,7 @@ func (k *KubernetesExecutor) Execute(r Repository) (string, int32, error) {
 		return output, exitCode, err
 	}
 
-	output, exitCode, err = k.RunJob(config, r.GetOwner(), r.GetName(), r.GetRef())
+	output, exitCode, err = k.RunJob(config, r)
 	if exitCode == 0 {
 		err := r.SetStatusSuccess(exitCode, output)
 		if err != nil {
@@ -65,7 +65,7 @@ func (k *KubernetesExecutor) Execute(r Repository) (string, int32, error) {
 	return output, exitCode, err
 }
 
-func (k *KubernetesExecutor) RunJob(config execution.Configuration, owner, name, sha string) (string, int32, error) {
+func (k *KubernetesExecutor) RunJob(config execution.Configuration, r Repository) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
@@ -74,8 +74,7 @@ func (k *KubernetesExecutor) RunJob(config execution.Configuration, owner, name,
 		return output, exitCode, err
 	}
 
-	repositoryURL := fmt.Sprintf("https://github.com/%v/%v.git", owner, name)
-	output, exitCode, err = k.createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, repositoryURL, sha, config.Command, config.Image)
+	output, exitCode, err = k.createJob(strconv.FormatInt(time.Now().Unix(), 10), kubeClient, r, config.Command, config.Image)
 	if err != nil {
 		return output, exitCode, err
 	}
@@ -83,11 +82,11 @@ func (k *KubernetesExecutor) RunJob(config execution.Configuration, owner, name,
 	return output, exitCode, nil
 }
 
-func (k *KubernetesExecutor) createJob(jobName string, kubeClient *kubernetes.Clientset, repositoryURL, sha string, command string, image string) (string, int32, error) {
+func (k *KubernetesExecutor) createJob(jobName string, kubeClient *kubernetes.Clientset, r Repository, command string, image string) (string, int32, error) {
 	output := ""
 	exitCode := int32(1)
 
-	job := makeJobDefinition(jobName, repositoryURL, sha, command, image)
+	job := makeJobDefinition(jobName, r, command, image)
 	log.Println("create k8s job")
 	job, err := kubeClient.BatchV1().Jobs(k.namespace).Create(job)
 	if err != nil {
@@ -185,7 +184,7 @@ func createKubeClient() (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func makeJobDefinition(jobName, repositoryURL, ref string, command string, image string) *batchv1.Job {
+func makeJobDefinition(jobName string, r Repository, command string, image string) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobName,
@@ -217,11 +216,11 @@ func makeJobDefinition(jobName, repositoryURL, ref string, command string, image
 							Name:    "repository",
 							Image:   "governmentpaas/git-ssh",
 							Command: []string{"/bin/bash", "-c"},
-							Args:    []string{fmt.Sprintf("git clone $(REPOSITORY) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout %v", ref)},
+							Args:    []string{fmt.Sprintf("git clone $(REPOSITORY) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout %v", r.GetRef())},
 							Env: []v1.EnvVar{
 								{
 									Name:  "REPOSITORY",
-									Value: repositoryURL,
+									Value: fmt.Sprintf("https://github.com/%v/%v.git", r.GetOwner(), r.GetName()),
 								},
 							},
 							VolumeMounts: []v1.VolumeMount{
