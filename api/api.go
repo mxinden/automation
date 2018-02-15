@@ -37,9 +37,8 @@ func NewAPI(c configuration.Configuration, e executor) API {
 	return API{config: c, executor: e}
 }
 
-func (api *API) HandleRequests() {
-	http.HandleFunc("/trigger", api.triggerHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+func (api *API) RegisterHandlers() {
+	http.HandleFunc("/api/trigger", api.triggerHandler)
 }
 
 type AuthorAssociation string
