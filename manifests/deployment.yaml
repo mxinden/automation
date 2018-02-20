@@ -21,7 +21,7 @@ spec:
           name: automation
       containers:
       - name: automation
-        image: minden/automation:v0.42
+        image: minden/automation:v0.43
         env:
         - name: GITHUB_API_TOKEN
           valueFrom:
@@ -35,6 +35,7 @@ spec:
               key: GITHUB_WEBHOOK_SECRET
         ports:
         - containerPort: 8080
+          name: web
         volumeMounts:
         - mountPath: /configuration.yaml
           name: config-volume

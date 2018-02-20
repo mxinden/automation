@@ -5,9 +5,10 @@ metadata:
   namespace: automation
   annotations:
     ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.class: nginx
 spec:
   rules:
-  - host: kubernetes.mxinden.cloudns.cx
+  - host: automation.mxinden.cloudns.cx
     http:
       paths:
       - path: /
