@@ -1,4 +1,33 @@
 stages:
-  - name: 'lint, build & test'
-    image: "golang"
-    command: "set -ex && go fmt . && git diff --exit-code && go build && go test -v $(go list ./...)"
+  - steps:
+      - volumes:
+          - name: "repository"
+            emptyDir: {}
+        initContainers:
+          - image: "governmentpaas/git-ssh"
+            command: "git clone $(GIT_REPOSITORY_URL) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout $(GIT_REF)"
+            volumeMounts:
+              - mountPath: /go/src/github.com/mxinden/automation
+                name: "repository"
+        containers:
+          - image: "golang"
+            command: "set -ex && go fmt . && git diff --exit-code && go test -v $(go list ./...) && go build"
+            workingDir:  "/go/src/github.com/mxinden/automation"
+            volumeMounts:
+              - mountPath: "/go/src/github.com/mxinden/automation"
+                name: "repository"
+
+                  # TODO: Add this as environment variable for tests?
+                  # 
+                  #			{
+                  #				Name: "GITHUB_API_TOKEN",
+                  #				ValueFrom: &v1.EnvVarSource{
+                    #					SecretKeyRef: &v1.SecretKeySelector{
+                      #						LocalObjectReference: v1.LocalObjectReference{
+                      #							Name: "github-api-token",
+                      #						},
+
+                      #						Key: "GITHUB_OAUTH_TOKEN",
+                      #					},
+                      #				},
+                      #			},
