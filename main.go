@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/mxinden/automation/api"
 	"github.com/mxinden/automation/configuration"
-	"github.com/mxinden/automation/kubernetes"
+	"github.com/mxinden/automation/connector/github"
+	"github.com/mxinden/automation/executor/kubernetes"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
@@ -16,11 +16,10 @@ func main() {
 	}
 
 	kubernetesExecutor := kubernetes.NewKubernetesExecutor(config.Namespace)
-
-	automationAPI := api.NewAPI(config, &kubernetesExecutor)
-	automationAPI.RegisterHandlers()
+	githubConnector := github.NewGithubConnector(config, &kubernetesExecutor)
 
 	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/api/github/trigger", githubConnector.TriggerHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
