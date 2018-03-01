@@ -14,6 +14,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"os"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -47,15 +49,38 @@ func (k *KubernetesExecutor) Execute(c executor.ExecutionConfiguration) (executo
 }
 
 func (k *KubernetesExecutor) executeStage(s executor.StageConfiguration) (executor.StageResult, error) {
+	var wg sync.WaitGroup
+	stepResults := make(chan executor.StepResult, len(s.Steps))
+	stepErrors := make(chan error, len(s.Steps))
+
+	for _, step := range s.Steps {
+		wg.Add(1)
+		go func(step executor.StepConfiguration) {
+			defer wg.Done()
+			stepResult, err := k.executeStep(step)
+			if err != nil {
+				stepErrors <- err
+			} else {
+				stepResults <- stepResult
+			}
+		}(step)
+	}
+
+	wg.Wait()
+	close(stepResults)
+	close(stepErrors)
+
 	stageResult := executor.StageResult{}
 
-	// TODO: Steps should be executed in parallel
-	for _, step := range s.Steps {
-		stepResult, err := k.executeStep(step)
-		if err != nil {
-			return stageResult, err
-		}
+	combinedError := []string{}
+	for err := range stepErrors {
+		combinedError = append(combinedError, err.Error())
+	}
+	if len(combinedError) != 0 {
+		return stageResult, errors.New(strings.Join(combinedError, "\n"))
+	}
 
+	for stepResult := range stepResults {
 		stageResult.Steps = append(stageResult.Steps, stepResult)
 	}
 
@@ -82,7 +107,7 @@ func (k *KubernetesExecutor) executeStep(step executor.StepConfiguration) (execu
 		return stepResult, errors.Wrapf(err, "failed to waitForJobToFinish for job %v", job.ObjectMeta.Name)
 	}
 
-	stepResult, err = k.getJobResult(kubeClient, job.UID)
+	stepResult, err = k.getJobResult(kubeClient, job.Name)
 	if err != nil {
 		return stepResult, errors.Wrapf(err, "failed to get job result for job %v", job.ObjectMeta.Name)
 	}
@@ -112,12 +137,26 @@ func waitForJobToFinish(kubeClient *kubernetes.Clientset, namespace string, jobN
 	return nil
 }
 
-func (k *KubernetesExecutor) getJobResult(kubeClient *kubernetes.Clientset, jobUID types.UID) (executor.StepResult, error) {
+func (k *KubernetesExecutor) getJobResult(kubeClient *kubernetes.Clientset, jobName string) (executor.StepResult, error) {
 	stepResult := executor.StepResult{}
 
-	pods, err := getPodsOfJob(kubeClient, k.namespace, jobUID)
+	job, err := kubeClient.BatchV1().Jobs(k.namespace).Get(jobName, metav1.GetOptions{})
 	if err != nil {
-		return stepResult, errors.Wrapf(err, "failed to get pods of job uid %v", jobUID)
+		err = errors.Wrapf(err, "failed to retrieve job %v for StartTime and CompletionTime", job.Name)
+		return stepResult, err
+	}
+
+	if job.Status.StartTime != nil {
+		stepResult.StartTime = job.Status.StartTime.Time
+	}
+
+	if job.Status.CompletionTime != nil {
+		stepResult.CompletionTime = job.Status.CompletionTime.Time
+	}
+
+	pods, err := getPodsOfJob(kubeClient, k.namespace, job.UID)
+	if err != nil {
+		return stepResult, errors.Wrapf(err, "failed to get pods of job uid %v", job.UID)
 	}
 
 	if len(pods) != 1 {

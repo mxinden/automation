@@ -176,7 +176,59 @@ func TestExecuteStepInitContainerShareDataWithContainer(t *testing.T) {
 // ExecuteStage
 
 func TestExecuteStageStepsRunInParallel(t *testing.T) {
-	t.Skip("TODO: Implement")
+	t.Parallel()
+
+	k := NewKubernetesExecutor("automation")
+
+	config := executor.ExecutionConfiguration{
+		Stages: []executor.StageConfiguration{
+			{
+				Steps: []executor.StepConfiguration{
+					{
+						Containers: []executor.ContainerConfiguration{
+							{
+								Command: "sleep 2",
+								Image:   "debian",
+							},
+						},
+					},
+					{
+						Containers: []executor.ContainerConfiguration{
+							{
+								Command: "true",
+								Image:   "debian",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := k.Execute(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !result.DidSucceed() {
+		t.Fatal("expected execution not to fail")
+	}
+
+	if len(result.Stages) != 1 {
+		t.Fatalf("expected 1 stage result, but got %v", len(result.Stages))
+	}
+
+	if len(result.Stages[0].Steps) != 2 {
+		t.Fatalf("expected 2 step result, but got %v", len(result.Stages))
+	}
+
+	if result.Stages[0].Steps[0].CompletionTime.Unix() < result.Stages[0].Steps[1].StartTime.Unix() {
+		t.Fatalf(
+			"expected second step to start before completion of first step, but second step started at %v and first step completed at %v",
+			result.Stages[0].Steps[1].StartTime.Unix(),
+			result.Stages[0].Steps[0].CompletionTime.Unix(),
+		)
+	}
 }
 
 // Execute
