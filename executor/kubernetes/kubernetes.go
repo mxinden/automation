@@ -31,7 +31,7 @@ func (k *KubernetesExecutor) Execute(c executor.ExecutionConfiguration) (executo
 	executionResult := executor.ExecutionResult{}
 
 	for _, stage := range c.Stages {
-		stageResult, err := k.ExecuteStage(stage)
+		stageResult, err := k.executeStage(stage)
 		if err != nil {
 			return executionResult, err
 		}
@@ -46,13 +46,12 @@ func (k *KubernetesExecutor) Execute(c executor.ExecutionConfiguration) (executo
 	return executionResult, nil
 }
 
-// TODO: Does not need to be public method
-func (k *KubernetesExecutor) ExecuteStage(s executor.StageConfiguration) (executor.StageResult, error) {
+func (k *KubernetesExecutor) executeStage(s executor.StageConfiguration) (executor.StageResult, error) {
 	stageResult := executor.StageResult{}
 
 	// TODO: Steps should be executed in parallel
 	for _, step := range s.Steps {
-		stepResult, err := k.ExecuteStep(step)
+		stepResult, err := k.executeStep(step)
 		if err != nil {
 			return stageResult, err
 		}
@@ -63,8 +62,7 @@ func (k *KubernetesExecutor) ExecuteStage(s executor.StageConfiguration) (execut
 	return stageResult, nil
 }
 
-// TODO: Does not need to be public method
-func (k *KubernetesExecutor) ExecuteStep(step executor.StepConfiguration) (executor.StepResult, error) {
+func (k *KubernetesExecutor) executeStep(step executor.StepConfiguration) (executor.StepResult, error) {
 	stepResult := executor.StepResult{}
 
 	kubeClient, err := createKubeClient()

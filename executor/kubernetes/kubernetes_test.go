@@ -20,7 +20,7 @@ func TestExecuteStep(t *testing.T) {
 		{Command: "echo " + expectedOutput, Image: "debian"},
 	}
 
-	stepResult, err := k.ExecuteStep(stepConfig)
+	stepResult, err := k.executeStep(stepConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestExecuteStepFailure(t *testing.T) {
 		{Command: "false", Image: "debian"},
 	}
 
-	stepResult, err := k.ExecuteStep(stepConfig)
+	stepResult, err := k.executeStep(stepConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestExecuteStepEnv(t *testing.T) {
 		},
 	}
 
-	stepResult, err := k.ExecuteStep(stepConfig)
+	stepResult, err := k.executeStep(stepConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestWorkingDir(t *testing.T) {
 		},
 	}
 
-	stepResult, err := k.ExecuteStep(stepConfig)
+	stepResult, err := k.executeStep(stepConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestExecuteStepInitContainerShareDataWithContainer(t *testing.T) {
 		},
 	}
 
-	stepResult, err := k.ExecuteStep(stepConfig)
+	stepResult, err := k.executeStep(stepConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
