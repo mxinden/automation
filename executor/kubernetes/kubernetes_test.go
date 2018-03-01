@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"github.com/mxinden/automation/executor"
+	"k8s.io/api/core/v1"
 	"strings"
 	"testing"
 )
@@ -51,8 +52,125 @@ func TestExecuteStepFailure(t *testing.T) {
 	}
 }
 
-func TestExecuteStepInitContainer(t *testing.T) {
-	t.Skip("TODO: Implement")
+func TestExecuteStepEnv(t *testing.T) {
+	t.Parallel()
+
+	k := NewKubernetesExecutor("automation")
+
+	stepConfig := executor.StepConfiguration{
+		Containers: []executor.ContainerConfiguration{
+			{
+				Command: "echo $TEST_KEY",
+				Image:   "debian",
+				Env: []v1.EnvVar{
+					{
+						Name:  "TEST_KEY",
+						Value: "TEST_VALUE",
+					},
+				},
+			},
+		},
+	}
+
+	stepResult, err := k.ExecuteStep(stepConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(stepResult.Output) != stepConfig.Containers[0].Env[0].Value {
+		t.Fatalf(
+			"expected output to be %v but got %v",
+			stepConfig.Containers[0].Env[0].Value,
+			stepResult.Output,
+		)
+	}
+}
+
+func TestWorkingDir(t *testing.T) {
+	t.Parallel()
+
+	k := NewKubernetesExecutor("automation")
+
+	stepConfig := executor.StepConfiguration{
+		Containers: []executor.ContainerConfiguration{
+			{
+				Command:    "pwd",
+				Image:      "debian",
+				WorkingDir: "/etc",
+			},
+		},
+	}
+
+	stepResult, err := k.ExecuteStep(stepConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(stepResult.Output) != stepConfig.Containers[0].WorkingDir {
+		t.Fatalf(
+			"expected output to be %v but got %v",
+			stepConfig.Containers[0].WorkingDir,
+			stepResult.Output,
+		)
+	}
+}
+
+func TestExecuteStepInitContainerShareDataWithContainer(t *testing.T) {
+	t.Parallel()
+
+	k := NewKubernetesExecutor("automation")
+
+	stepConfig := executor.StepConfiguration{
+		Volumes: []v1.Volume{
+			{
+				Name: "sample-volume",
+				VolumeSource: v1.VolumeSource{
+					EmptyDir: &v1.EmptyDirVolumeSource{},
+				},
+			},
+		},
+		InitContainers: []executor.ContainerConfiguration{
+			{
+				Command: "touch /sample_dir/testfile.txt",
+				Image:   "debian",
+				VolumeMounts: []executor.VolumeMount{
+					{
+						Name:      "sample-volume",
+						MountPath: "/sample_dir",
+					},
+				},
+			},
+		},
+		Containers: []executor.ContainerConfiguration{
+			{
+				Command: "cat /sample_dir/testfile.txt",
+				Image:   "debian",
+				VolumeMounts: []executor.VolumeMount{
+					{
+						Name:      "sample-volume",
+						MountPath: "/sample_dir",
+					},
+				},
+			},
+		},
+	}
+
+	stepResult, err := k.ExecuteStep(stepConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(stepResult.InitContainers) != 1 {
+		t.Fatalf("expected 1 init container result but got %v", len(stepResult.InitContainers))
+	}
+
+	if len(stepResult.Containers) != 1 {
+		t.Fatalf("expected 1 container result but got %v", len(stepResult.Containers))
+	}
+
+	if stepResult.Containers[0].ExitCode != 0 {
+		t.Fatalf("expected container to exit with 0 but got %v with logs \n %v", stepResult.Containers[0].ExitCode, stepResult.Output)
+	}
 }
 
 // ExecuteStage
