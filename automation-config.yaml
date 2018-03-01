@@ -3,6 +3,7 @@ stages:
       - volumes:
           - name: "repository"
             emptyDir: {}
+        serviceAccountName: "automation"
         initContainers:
           - image: "governmentpaas/git-ssh"
             command: "git clone $(GIT_REPOSITORY_URL) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout $(GIT_REF)"

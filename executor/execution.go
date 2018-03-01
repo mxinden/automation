@@ -13,9 +13,10 @@ type StageConfiguration struct {
 }
 
 type StepConfiguration struct {
-	InitContainers []ContainerConfiguration `yaml:"initContainers"`
-	Containers     []ContainerConfiguration `yaml:"containers"`
-	Volumes        []v1.Volume              `yaml:"volumes"`
+	InitContainers     []ContainerConfiguration `yaml:"initContainers"`
+	Containers         []ContainerConfiguration `yaml:"containers"`
+	Volumes            []v1.Volume              `yaml:"volumes"`
+	ServiceAccountName string                   `yaml:"serviceAccountName"`
 }
 
 type ContainerConfiguration struct {
