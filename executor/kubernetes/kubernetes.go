@@ -197,8 +197,7 @@ func stepConfigToK8sJob(config executor.StepConfiguration) *batchv1.Job {
 	job := &batchv1.Job{}
 
 	job.ObjectMeta.Name = getRandomName()
-	// TODO: Make this configurable
-	job.Spec.Template.Spec.ServiceAccountName = "automation"
+	job.Spec.Template.Spec.ServiceAccountName = config.ServiceAccountName
 	job.Spec.Template.Spec.RestartPolicy = "Never"
 	job.Spec.Template.Spec.Containers = containers
 	job.Spec.Template.Spec.InitContainers = initContainers
