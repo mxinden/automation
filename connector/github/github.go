@@ -7,11 +7,10 @@ import (
 	"github.com/mxinden/automation/configuration"
 	"github.com/mxinden/automation/executor"
 	"golang.org/x/oauth2"
-	"gopkg.in/yaml.v2"
 	"k8s.io/api/core/v1"
-	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type GithubConnector struct {
@@ -110,7 +109,6 @@ func addEnvVars(
 }
 
 func GetConfiguration(owner, name, ref string) (executor.ExecutionConfiguration, error) {
-	log.Printf("get configuration for repository %v/%v\n", owner, name)
 	var config executor.ExecutionConfiguration
 	ctx := context.Background()
 
@@ -118,7 +116,7 @@ func GetConfiguration(owner, name, ref string) (executor.ExecutionConfiguration,
 
 	file, _, _, err := client.Repositories.GetContents(ctx, owner, name, "automation-config.yaml", &github.RepositoryContentGetOptions{Ref: ref})
 	if err != nil {
-		log.Fatal(err)
+		return config, err
 	}
 
 	rawConfig, err := file.GetContent()
@@ -126,7 +124,7 @@ func GetConfiguration(owner, name, ref string) (executor.ExecutionConfiguration,
 		return config, err
 	}
 
-	err = yaml.Unmarshal([]byte(rawConfig), &config)
+	config, err = executor.DecodeExecutionConfiguration(strings.NewReader(rawConfig))
 	if err != nil {
 		return config, err
 	}

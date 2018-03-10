@@ -1,0 +1,5 @@
+stages:
+  - steps:
+      - containers:
+          - securityContext:
+              privileged: true
