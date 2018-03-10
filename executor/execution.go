@@ -2,6 +2,7 @@ package executor
 
 import (
 	"k8s.io/api/core/v1"
+	"time"
 )
 
 type ExecutionConfiguration struct {
@@ -70,6 +71,8 @@ type StepResult struct {
 	InitContainers []ContainerResult
 	Containers     []ContainerResult
 	Output         string
+	StartTime      time.Time
+	CompletionTime time.Time
 }
 
 type ContainerResult struct {
