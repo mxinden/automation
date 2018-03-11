@@ -1,12 +1,20 @@
 package executor
 
 import (
+	"io"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"time"
 )
 
 type ExecutionConfiguration struct {
 	Stages []StageConfiguration `yaml:"stages"`
+}
+
+func DecodeExecutionConfiguration(r io.Reader) (ExecutionConfiguration, error) {
+	c := ExecutionConfiguration{}
+	err := yaml.NewYAMLOrJSONDecoder(r, 4096).Decode(&c)
+	return c, err
 }
 
 type StageConfiguration struct {
@@ -21,11 +29,12 @@ type StepConfiguration struct {
 }
 
 type ContainerConfiguration struct {
-	Command      string        `yaml:"command"`
-	Image        string        `yaml:"image"`
-	Env          []v1.EnvVar   `yaml:"env"`
-	VolumeMounts []VolumeMount `yaml:"volumeMounts"`
-	WorkingDir   string        `yaml:"workingDir"`
+	Command         string              `yaml:"command"`
+	Image           string              `yaml:"image"`
+	Env             []v1.EnvVar         `yaml:"env"`
+	VolumeMounts    []VolumeMount       `yaml:"volumeMounts"`
+	WorkingDir      string              `yaml:"workingDir"`
+	SecurityContext *v1.SecurityContext `yaml:"securityContext"`
 }
 
 type VolumeMount struct {

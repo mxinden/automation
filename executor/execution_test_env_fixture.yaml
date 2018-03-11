@@ -1,0 +1,9 @@
+stages:
+  - steps:
+      - containers:
+          - env:
+              - name: sample-env-var-name
+                valueFrom:
+                  secretKeyRef:
+                    name: sample-secret-name
+                    key: sample-secret-key

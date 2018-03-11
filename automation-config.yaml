@@ -1,5 +1,6 @@
 stages:
   - steps:
+      # TODO: Share volume between steps
       - volumes:
           - name: "repository"
             emptyDir: {}
@@ -17,18 +18,35 @@ stages:
             volumeMounts:
               - mountPath: "/go/src/github.com/mxinden/automation"
                 name: "repository"
-
-                  # TODO: Add this as environment variable for tests?
-                  # 
-                  #			{
-                  #				Name: "GITHUB_API_TOKEN",
-                  #				ValueFrom: &v1.EnvVarSource{
-                    #					SecretKeyRef: &v1.SecretKeySelector{
-                      #						LocalObjectReference: v1.LocalObjectReference{
-                      #							Name: "github-api-token",
-                      #						},
-
-                      #						Key: "GITHUB_OAUTH_TOKEN",
-                      #					},
-                      #				},
-                      #			},
+  - steps:
+      - volumes:
+          - name: "repository"
+            emptyDir: {}
+        serviceAccountName: "automation"
+        initContainers:
+          - image: "governmentpaas/git-ssh"
+            command: "git clone $(GIT_REPOSITORY_URL) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout $(GIT_REF)"
+            volumeMounts:
+              - mountPath: /go/src/github.com/mxinden/automation
+                name: "repository"
+          - image: "golang"
+            command: "set -ex && go build"
+            workingDir:  "/go/src/github.com/mxinden/automation"
+            volumeMounts:
+              - mountPath: "/go/src/github.com/mxinden/automation"
+                name: "repository"
+        containers:
+          - image: "docker:dind"
+            workingDir:  "/go/src/github.com/mxinden/automation"
+            volumeMounts:
+              - mountPath: "/go/src/github.com/mxinden/automation"
+                name: "repository"
+            command: 'dockerd-entrypoint.sh & docker login -u=mxinden+automation -p=$(QUAY_AUTOMATION_ROBOT_PASSWORD) quay.io && docker build -t quay.io/mxinden/automation:$(GIT_REF) . && docker push quay.io/mxinden/automation:$(GIT_REF)'
+            securityContext:
+              privileged: true
+            env:
+              - name: QUAY_AUTOMATION_ROBOT_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: quay-automation-robot
+                    key: QUAY_AUTOMATION_ROBOT_PASSWORD
