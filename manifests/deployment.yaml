@@ -21,7 +21,7 @@ spec:
           name: automation
       containers:
       - name: automation
-        image: minden/automation:v0.69
+        image: minden/automation:v0.75
         env:
         - name: GITHUB_API_TOKEN
           valueFrom:

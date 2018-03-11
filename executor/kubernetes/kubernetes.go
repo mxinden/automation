@@ -116,7 +116,7 @@ func (k *KubernetesExecutor) executeStep(step executor.StepConfiguration) (execu
 }
 
 func waitForJobToFinish(kubeClient *kubernetes.Clientset, namespace string, jobName string) error {
-	err := wait.Poll(time.Second, 5*time.Minute, func() (bool, error) {
+	err := wait.Poll(time.Second, 30*time.Minute, func() (bool, error) {
 		job, err := kubeClient.BatchV1().Jobs(namespace).Get(jobName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -263,13 +263,14 @@ func containerConfToK8sContainer(config executor.ContainerConfiguration) v1.Cont
 	}
 
 	container := v1.Container{
-		Name:         getRandomName(),
-		Image:        config.Image,
-		Command:      []string{"/bin/bash", "-c"},
-		Args:         []string{config.Command},
-		Env:          config.Env,
-		VolumeMounts: volumeMounts,
-		WorkingDir:   config.WorkingDir,
+		Name:            getRandomName(),
+		Image:           config.Image,
+		Command:         []string{"/bin/sh", "-c"},
+		Args:            []string{config.Command},
+		Env:             config.Env,
+		VolumeMounts:    volumeMounts,
+		WorkingDir:      config.WorkingDir,
+		SecurityContext: config.SecurityContext,
 	}
 
 	return container
