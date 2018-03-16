@@ -7,7 +7,7 @@ stages:
         serviceAccountName: "automation"
         initContainers:
           - image: "governmentpaas/git-ssh"
-            command: "git clone $(GIT_REPOSITORY_URL) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout $(GIT_REF)"
+            command: "git clone $(GIT_REPOSITORY_URL) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout $(GIT_SHA)"
             volumeMounts:
               - mountPath: /go/src/github.com/mxinden/automation
                 name: "repository"
@@ -25,7 +25,7 @@ stages:
         serviceAccountName: "automation"
         initContainers:
           - image: "governmentpaas/git-ssh"
-            command: "git clone $(GIT_REPOSITORY_URL) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout $(GIT_REF)"
+            command: "git clone $(GIT_REPOSITORY_URL) /go/src/github.com/mxinden/automation && cd /go/src/github.com/mxinden/automation && git checkout $(GIT_SHA)"
             volumeMounts:
               - mountPath: /go/src/github.com/mxinden/automation
                 name: "repository"
@@ -41,7 +41,7 @@ stages:
             volumeMounts:
               - mountPath: "/go/src/github.com/mxinden/automation"
                 name: "repository"
-            command: 'dockerd-entrypoint.sh & docker login -u=mxinden+automation -p=$(QUAY_AUTOMATION_ROBOT_PASSWORD) quay.io && docker build -t quay.io/mxinden/automation:$(GIT_REF) . && docker push quay.io/mxinden/automation:$(GIT_REF)'
+            command: 'dockerd-entrypoint.sh & docker login -u=mxinden+automation -p=$(QUAY_AUTOMATION_ROBOT_PASSWORD) quay.io && docker build -t quay.io/mxinden/automation:$(GIT_SHA) . && docker push quay.io/mxinden/automation:$(GIT_SHA)'
             securityContext:
               privileged: true
             env:

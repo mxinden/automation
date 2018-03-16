@@ -35,29 +35,38 @@ func (c *GithubConnector) TriggerHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	pullRequestEvent, ok := event.(*github.PullRequestEvent)
-	if !ok {
-		log.Printf("Error, expecting pull request event but got: %v", github.WebHookType(r))
-		http.Error(w, "error expecting pull request event", http.StatusBadRequest)
-		return
+	switch event := event.(type) {
+	case *github.PullRequestEvent:
+		err = c.processPullRequestEvent(event)
+	case *github.PushEvent:
+		err = c.processPushEvent(event)
+	default:
+		err = errors.New(fmt.Sprintf("error expecting pull request or push event but got: %v", github.WebHookType(r)))
 	}
-
-	err = checkPermissions(c.config, pullRequestEvent)
 	if err != nil {
 		log.Print(err)
-		http.Error(w, fmt.Sprint(err), http.StatusBadRequest)
-		return
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	go log.Println(c.runFromPREvent(*pullRequestEvent))
-
-	log.Printf(
-		"Triggered execution for repository %v",
-		pullRequestEvent.GetRepo().GetFullName(),
-	)
+	return
 }
 
-func checkPermissions(c configuration.Configuration, event *github.PullRequestEvent) error {
+func (c *GithubConnector) processPullRequestEvent(e *github.PullRequestEvent) error {
+	err := checkPRAuthorPermissions(c.config, e)
+	if err != nil {
+		return err
+	}
+
+	go log.Println(c.runFromPREvent(*e))
+	return nil
+}
+
+func (c *GithubConnector) processPushEvent(e *github.PushEvent) error {
+	go log.Println(c.runFromPushEvent(*e))
+	return nil
+}
+
+func checkPRAuthorPermissions(c configuration.Configuration, event *github.PullRequestEvent) error {
 	event.PullRequest.GetAuthorAssociation()
 
 	if !equalsAny(
