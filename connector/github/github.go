@@ -10,6 +10,7 @@ import (
 	"k8s.io/api/core/v1"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -28,14 +29,14 @@ func NewGithubConnector(c configuration.Configuration, e executor.Executor) Gith
 type PRExecution struct {
 	owner    string
 	name     string
-	ref      string
+	sha      string
 	prNumber int
 	client   *github.Client
 	ctx      context.Context
 }
 
-func NewPRExecution(owner, name, ref string, prNumber int) *PRExecution {
-	e := &PRExecution{owner: owner, name: name, ref: ref, prNumber: prNumber}
+func NewPRExecution(owner, name, sha string, prNumber int) *PRExecution {
+	e := &PRExecution{owner: owner, name: name, sha: sha, prNumber: prNumber}
 	t := os.Getenv("GITHUB_API_TOKEN")
 	e.ctx = context.Background()
 	ts := oauth2.StaticTokenSource(
@@ -48,6 +49,7 @@ func NewPRExecution(owner, name, ref string, prNumber int) *PRExecution {
 }
 
 func (c *GithubConnector) runFromPREvent(event github.PullRequestEvent) error {
+	// TODO: Still needed?
 	e := NewPRExecution(
 		*event.Repo.Owner.Login,
 		*event.Repo.Name,
@@ -60,17 +62,7 @@ func (c *GithubConnector) runFromPREvent(event github.PullRequestEvent) error {
 		return err
 	}
 
-	config, err := GetConfiguration(e.owner, e.name, e.ref)
-	if err != nil {
-		return err
-	}
-
-	config, err = addEnvVars(event, config)
-	if err != nil {
-		return err
-	}
-
-	executionResult, err := c.executor.Execute(config)
+	executionResult, err := c.run(*event.Repo.CloneURL, e.owner, e.name, *event.PullRequest.Head.Ref, *event.PullRequest.Head.SHA)
 	if err != nil {
 		return err
 	}
@@ -83,15 +75,40 @@ func (c *GithubConnector) runFromPREvent(event github.PullRequestEvent) error {
 	return nil
 }
 
-func addEnvVars(
-	e github.PullRequestEvent,
-	c executor.ExecutionConfiguration,
-) (executor.ExecutionConfiguration, error) {
+func (c *GithubConnector) runFromPushEvent(event github.PushEvent) error {
+	_, err := c.run(
+		*event.Repo.CloneURL,
+		*event.Repo.Owner.Name,
+		*event.Repo.Name,
+		// TODO: Find cleaner solution
+		gitRefToBranchName(*event.Ref),
+		*event.After,
+	)
+	return err
+}
+
+func (c *GithubConnector) run(repoURL, repoOwner, repoName, branchName, sha string) (executor.ExecutionResult, error) {
+	executionResult := executor.ExecutionResult{}
+	config, err := GetConfiguration(repoOwner, repoName, sha)
+	if err != nil {
+		return executionResult, err
+	}
+
+	config, err = addEnvVars(repoURL, branchName, sha, config)
+	if err != nil {
+		return executionResult, err
+	}
+
+	return c.executor.Execute(config)
+}
+
+func addEnvVars(repoURL, branch, sha string, c executor.ExecutionConfiguration) (executor.ExecutionConfiguration, error) {
 	config := c
 
 	env := []v1.EnvVar{
-		v1.EnvVar{Name: "GIT_REPOSITORY_URL", Value: e.GetRepo().GetCloneURL()},
-		v1.EnvVar{Name: "GIT_REF", Value: *e.PullRequest.Head.SHA},
+		v1.EnvVar{Name: "GIT_REPOSITORY_URL", Value: repoURL},
+		v1.EnvVar{Name: "GIT_SHA", Value: sha},
+		v1.EnvVar{Name: "GIT_BRANCH_NAME", Value: branch},
 	}
 
 	for stageI, stage := range config.Stages {
@@ -108,13 +125,19 @@ func addEnvVars(
 	return config, nil
 }
 
-func GetConfiguration(owner, name, ref string) (executor.ExecutionConfiguration, error) {
+func gitRefToBranchName(ref string) string {
+	// extract e.g. "push-test" out of "refs/heads/push-test"
+	re := regexp.MustCompile("[^/]*$")
+	return re.FindString(ref)
+}
+
+func GetConfiguration(owner, name, sha string) (executor.ExecutionConfiguration, error) {
 	var config executor.ExecutionConfiguration
 	ctx := context.Background()
 
 	client := github.NewClient(&http.Client{})
 
-	file, _, _, err := client.Repositories.GetContents(ctx, owner, name, "automation-config.yaml", &github.RepositoryContentGetOptions{Ref: ref})
+	file, _, _, err := client.Repositories.GetContents(ctx, owner, name, "automation-config.yaml", &github.RepositoryContentGetOptions{Ref: sha})
 	if err != nil {
 		return config, err
 	}
@@ -166,12 +189,12 @@ func (e *PRExecution) updateGithubCommitStatus(s ExecutionStatus) error {
 		Context: &context,
 	}
 
-	_, _, err := e.client.Repositories.CreateStatus(e.ctx, e.owner, e.name, e.ref, &status)
+	_, _, err := e.client.Repositories.CreateStatus(e.ctx, e.owner, e.name, e.sha, &status)
 	return err
 }
 
 func (e *PRExecution) addResultAsPRComment(s ExecutionStatus, r executor.ExecutionResult) error {
-	body := "Result for " + e.ref + ": " + string(s) + formatLogsForGithubComment(r)
+	body := "Result for " + e.sha + ": " + string(s) + formatLogsForGithubComment(r)
 	comment := github.IssueComment{
 		Body: &body,
 	}

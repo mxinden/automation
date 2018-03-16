@@ -1,7 +1,6 @@
 package github
 
 import (
-	"github.com/google/go-github/github"
 	"github.com/mxinden/automation/executor"
 	"k8s.io/api/core/v1"
 	"testing"
@@ -10,15 +9,13 @@ import (
 func TestAddEnvVars(t *testing.T) {
 	t.Parallel()
 
-	e := MakePullRequestEvent()
 	c := MakeExecutionConfigurationWithOneContainer()
 
 	url := "my fancy url"
-	e.Repo.CloneURL = &url
+	ref := "master"
 	sha := "custom sha"
-	e.PullRequest.Head.SHA = &sha
 
-	enrichedConfig, err := addEnvVars(e, c)
+	enrichedConfig, err := addEnvVars(url, ref, sha, c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +25,7 @@ func TestAddEnvVars(t *testing.T) {
 		Value string
 	}{
 		{"GIT_REPOSITORY_URL", url},
-		{"GIT_REF", sha},
+		{"GIT_SHA", sha},
 	}
 
 	for _, envVar := range expectedVars {
@@ -41,7 +38,6 @@ func TestAddEnvVars(t *testing.T) {
 func TestAddEnvVarsAppendsNotReplaces(t *testing.T) {
 	t.Parallel()
 
-	e := MakePullRequestEvent()
 	c := MakeExecutionConfigurationWithOneContainer()
 
 	key := "pre-existing secret key"
@@ -55,11 +51,10 @@ func TestAddEnvVarsAppendsNotReplaces(t *testing.T) {
 	}
 
 	url := "my fancy url"
-	e.Repo.CloneURL = &url
-	sha := "custom sha"
-	e.PullRequest.Head.SHA = &sha
+	ref := "master"
+	sha := "1234"
 
-	enrichedConfig, err := addEnvVars(e, c)
+	enrichedConfig, err := addEnvVars(url, ref, sha, c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,6 +71,17 @@ func TestAddEnvVarsAppendsNotReplaces(t *testing.T) {
 	}
 }
 
+func TestGitReferenceToBranchName(t *testing.T) {
+	ref := "refs/heads/push-test"
+	expectedBranch := "push-test"
+
+	branch := gitRefToBranchName(ref)
+
+	if branch != expectedBranch {
+		t.Fatalf("expected %v but got %v", expectedBranch, branch)
+	}
+}
+
 func findEnvVarInConfig(name, value string, config executor.ExecutionConfiguration) bool {
 	for _, stage := range config.Stages {
 		for _, step := range stage.Steps {
@@ -89,19 +95,6 @@ func findEnvVarInConfig(name, value string, config executor.ExecutionConfigurati
 		}
 	}
 	return false
-}
-
-func MakePullRequestEvent() github.PullRequestEvent {
-	repo := github.Repository{}
-	head := github.PullRequestBranch{}
-	pr := github.PullRequest{
-		Head: &head,
-	}
-	e := github.PullRequestEvent{
-		Repo:        &repo,
-		PullRequest: &pr,
-	}
-	return e
 }
 
 func MakeExecutionConfigurationWithOneContainer() executor.ExecutionConfiguration {
