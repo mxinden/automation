@@ -173,6 +173,7 @@ func (k *KubernetesExecutor) getJobResult(kubeClient *kubernetes.Clientset, jobN
 		stepResult.Containers = append(stepResult.Containers, getContainerResult(c))
 	}
 
+	// TODO: Get logs of init containers as well
 	options := &v1.PodLogOptions{}
 	req := kubeClient.CoreV1().Pods(k.namespace).GetLogs(pod.ObjectMeta.Name, options)
 	result, err := req.Do().Raw()
