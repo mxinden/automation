@@ -21,7 +21,7 @@ spec:
           name: automation
       containers:
       - name: automation
-        image: minden/automation:v0.82
+        image: quay.io/mxinden/automation:v0.82
         env:
         - name: GITHUB_API_TOKEN
           valueFrom:

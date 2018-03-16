@@ -35,7 +35,6 @@ stages:
             volumeMounts:
               - mountPath: "/go/src/github.com/mxinden/automation"
                 name: "repository"
-        containers:
           - image: "docker:dind"
             workingDir:  "/go/src/github.com/mxinden/automation"
             volumeMounts:
@@ -50,3 +49,6 @@ stages:
                   secretKeyRef:
                     name: quay-automation-robot
                     key: QUAY_AUTOMATION_ROBOT_PASSWORD
+        containers:
+          - image: "wernight/kubectl"
+            command: 'if [ "${GIT_BRANCH_NAME}" = "master" ]; then kubectl set image deployment/automation -n automation automation=quay.io/mxinden/automation:$(GIT_SHA); else echo "not on master branch, skipping deployment step"; fi'
